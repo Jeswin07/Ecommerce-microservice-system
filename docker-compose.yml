@@ -1,0 +1,128 @@
+version: "3.9"
+
+services:
+
+  # =========================
+  # 🐘 POSTGRES (PRODUCT)
+  # =========================
+  postgres-product:
+    image: postgres
+    container_name: postgres-product
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: product_db
+    ports:
+      - "5434:5432"
+
+  # =========================
+  # 🐘 POSTGRES (ORDER)
+  # =========================
+  postgres-order:
+    image: postgres
+    container_name: postgres-order
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: order_db
+    ports:
+      - "5433:5432"
+
+  # =========================
+  # ⚡ REDIS
+  # =========================
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+
+  # =========================
+  # 🐰 RABBITMQ
+  # =========================
+  rabbitmq:
+    image: rabbitmq
+    ports:
+      - "5672:5672"
+
+  # =========================
+  # 📊 PROMETHEUS
+  # =========================
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  # =========================
+  # 📈 GRAFANA
+  # =========================
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+
+  # =========================
+  # 🔍 ELASTICSEARCH
+  # =========================
+  elasticsearch:
+    image: elasticsearch:8.5.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+
+  # =========================
+  # 📊 KIBANA
+  # =========================
+  kibana:
+    image: kibana:8.5.0
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  # =========================
+  # 👤 USER SERVICE
+  # =========================
+  user-service:
+    build: ./user-service
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres-product
+
+  # =========================
+  # 📦 PRODUCT SERVICE
+  # =========================
+  product-service:
+    build: ./product-service
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres-product
+
+  # =========================
+  # 🧾 ORDER SERVICE
+  # =========================
+  order-service:
+    build: ./order-service
+    ports:
+      - "8003:8003"
+    depends_on:
+      - postgres-order
+      - rabbitmq
+
+  # =========================
+  # 🌐 API GATEWAY
+  # =========================
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
